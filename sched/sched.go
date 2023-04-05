@@ -64,9 +64,8 @@ func (s *Scheduler) Start(ctx context.Context) {
 	for i := 0; i < s.workerNum; i++ {
 		go s.worker(s.jobQueue, ctx)
 	}
-
+	index := 0
 	for {
-		index := 0
 		select {
 		case <-ctx.Done():
 			close(s.jobQueue)
@@ -77,10 +76,9 @@ func (s *Scheduler) Start(ctx context.Context) {
 			s.prioMap[j.ref.priority]++
 			jobList := s.jobMap[j.ref.ceilPriority]
 			s.jobMap[j.ref.ceilPriority] = append(jobList, &j)
-			index = 0
+			index = min(j.ref.priority, index)
 			// TODO: ceiling the prioriy of specific job,
 			// if it has the sync resource shared with this job
-
 		default:
 			// TODO: watchDog
 			s.sched(index)
@@ -94,23 +92,19 @@ func (s *Scheduler) Start(ctx context.Context) {
 }
 
 func (s *Scheduler) sched(index int) {
-	func() {
-		for index <= priorityGap {
-			if s.prioMap[index] > 0 && len(s.jobMap[index]) > 0 {
-				var j *Job
-				jobList := s.jobMap[index]
-				j = jobList[0]
-				s.jobQueue <- *j
-				if len(jobList) > 1 {
-					s.jobMap[index] = jobList[1:]
-				} else {
-					s.jobMap[index] = make([]*Job, 0)
-				}
-				s.prioMap[j.ref.priority]--
-				if j.ref.preemptable {
-					close(j.earlyBreak)
-				}
-			}
+	if s.prioMap[index] > 0 && len(s.jobMap[index]) > 0 {
+		var j *Job
+		jobList := s.jobMap[index]
+		j = jobList[0]
+		s.jobQueue <- *j
+		if len(jobList) > 1 {
+			s.jobMap[index] = jobList[1:]
+		} else {
+			s.jobMap[index] = make([]*Job, 0)
 		}
-	}()
+		s.prioMap[j.ref.priority]--
+		if j.ref.preemptable {
+			close(j.earlyBreak)
+		}
+	}
 }
