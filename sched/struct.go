@@ -33,7 +33,7 @@ type Scheduler struct {
 	schedName string
 	workerNum int
 	// pre-define
-	jobMap  map[int][]*Job
+	jobMap  []*Job
 	jobDefs map[string]*JobDef
 	// runtime
 	prioMap  map[int]int
@@ -44,6 +44,7 @@ type Scheduler struct {
 }
 
 type Mutex struct {
-	mu     sync.Mutex
-	belong *Job
+	mu           sync.Mutex
+	resourceName string
+	belong       *Job
 }

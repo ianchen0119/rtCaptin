@@ -23,10 +23,10 @@ func (s *Scheduler) worker(jobs chan Job, ctx context.Context) {
 				j.args = struct{}{}
 			}
 			j.ref.handler(j.earlyBreak, j.resChan, j.args)
-			if j.ref.hasRV {
+			if j.ref.hasRV && j.resChan != nil {
 				close(j.resChan)
 			}
-			if j.ref.preemptable {
+			if j.ref.preemptable && j.earlyBreak != nil {
 				close(j.earlyBreak)
 			}
 		default:
@@ -38,7 +38,7 @@ func (c *Captin) NewScheduler(schedName string, workerNum int) (*Scheduler, erro
 	newS := &Scheduler{
 		schedName: schedName,
 		workerNum: workerNum,
-		jobMap:    make(map[int][]*Job),
+		jobMap:    []*Job{},
 		jobDefs:   make(map[string]*JobDef),
 		prioMap:   make(map[int]int),
 		recvChan:  make(chan Job, 100),
@@ -78,8 +78,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 			return
 		case j := <-s.recvChan:
 			s.prioMap[j.ceilPriority]++
-			jobList := s.jobMap[j.ceilPriority]
-			s.jobMap[j.ceilPriority] = append(jobList, &j)
+			s.jobMap = append(s.jobMap, &j)
 			// TODO: ceiling the prioriy of specific job,
 			// if it has the sync resource shared with this job
 		default:
@@ -96,16 +95,12 @@ func (s *Scheduler) sched() {
 			break
 		}
 	}
-	if len(s.jobMap[hPrio]) > 0 {
-		var j *Job
-		jobList := s.jobMap[hPrio]
-		j = jobList[0]
-		s.jobQueue <- *j
-		if len(jobList) > 1 {
-			s.jobMap[hPrio] = jobList[1:]
-		} else {
-			s.jobMap[hPrio] = make([]*Job, 0)
+	for i := 0; i < len(s.jobMap); i++ {
+		if s.jobMap[i].ceilPriority == hPrio {
+			j := s.jobMap[i]
+			s.jobQueue <- *j
+			s.jobMap = remove(s.jobMap, i)
+			s.prioMap[j.ceilPriority]--
 		}
-		s.prioMap[j.ref.priority]--
 	}
 }

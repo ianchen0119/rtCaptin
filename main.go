@@ -15,7 +15,7 @@ func sleep(notify chan interface{}, res chan interface{}, args interface{}) {
 			return
 		default:
 			time.Sleep(5 * time.Millisecond)
-			fmt.Println("Good morning!")
+			fmt.Printf("%s", args)
 			res <- 1
 			return
 		}
@@ -47,12 +47,15 @@ func main() {
 	s.DefineNewJob("hi", false, 255, false, sayHi)
 	ctx, cancel := context.WithCancel(context.Background())
 	go s.Start(ctx)
+	res, _ := s.CreateNewJob("sleep", "Good Morning!\n")
 	for i := 0; i < 100; i++ {
-		s.CreateNewJob("sleep", nil)
+		s.CreateNewJob("sleep", "Good Morning!\n")
 		if i == 60 {
 			s.CreateNewJob("hi", nil)
 		}
 	}
+	val := <-res
+	fmt.Println(val)
 	time.Sleep(10 * time.Second)
 	cancel()
 }

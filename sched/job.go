@@ -22,10 +22,9 @@ func (s *Scheduler) DefineNewJob(jobName string, preemptable bool,
 	return nil
 }
 
-// TODO: get the result of the executed Job
-func (s *Scheduler) CreateNewJob(jobName string, args interface{}) error {
+func (s *Scheduler) CreateNewJob(jobName string, args interface{}) (<-chan interface{}, error) {
 	if jd, ok := s.jobDefs[jobName]; !ok {
-		return errors.New("JobDefinition not found")
+		return nil, errors.New("JobDefinition not found")
 	} else {
 		var c chan interface{}
 		if jd.hasRV {
@@ -33,7 +32,6 @@ func (s *Scheduler) CreateNewJob(jobName string, args interface{}) error {
 		}
 		j := Job{
 			ref:          jd,
-			assoJob:      nil,
 			args:         args,
 			ceilPriority: jd.priority,
 			resChan:      c,
@@ -42,6 +40,6 @@ func (s *Scheduler) CreateNewJob(jobName string, args interface{}) error {
 			j.earlyBreak = make(chan interface{}, 1)
 		}
 		s.recvChan <- j
-		return nil
+		return c, nil
 	}
 }
