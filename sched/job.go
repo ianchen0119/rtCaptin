@@ -1,6 +1,8 @@
 package sched
 
-import "errors"
+import (
+	"errors"
+)
 
 func (s *Scheduler) DefineNewJob(jobName string, preemptable bool,
 	priority int, hasReturnVal bool,
@@ -22,7 +24,7 @@ func (s *Scheduler) DefineNewJob(jobName string, preemptable bool,
 	return nil
 }
 
-func (s *Scheduler) CreateNewJob(jobName string, args interface{}) (<-chan interface{}, error) {
+func (s *Scheduler) CreateNewJob(jobName string, args interface{}, resources []*Resource) (<-chan interface{}, error) {
 	if jd, ok := s.jobDefs[jobName]; !ok {
 		return nil, errors.New("JobDefinition not found")
 	} else {
@@ -30,16 +32,28 @@ func (s *Scheduler) CreateNewJob(jobName string, args interface{}) (<-chan inter
 		if jd.hasRV {
 			c = make(chan interface{}, 1)
 		}
+		if args == nil {
+			args = struct{}{}
+		}
 		j := Job{
 			ref:          jd,
 			args:         args,
 			ceilPriority: jd.priority,
 			resChan:      c,
+			done:         false,
+			resources:    resources,
 		}
 		if jd.preemptable {
 			j.earlyBreak = make(chan interface{}, 1)
 		}
 		s.recvChan <- j
 		return c, nil
+	}
+}
+
+func NewResource(resName string, val interface{}) *Resource {
+	return &Resource{
+		resourceName: resName,
+		res:          val,
 	}
 }

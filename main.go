@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	cap "github.com/ianchen0119/rtCaptin/sched"
@@ -30,7 +31,6 @@ func sayHi(notify chan interface{}, res chan interface{}, args interface{}) {
 		default:
 			time.Sleep(3 * time.Millisecond)
 			fmt.Println("Hi!")
-			res <- 1
 			return
 		}
 	}
@@ -47,11 +47,18 @@ func main() {
 	s.DefineNewJob("hi", false, 255, false, sayHi)
 	ctx, cancel := context.WithCancel(context.Background())
 	go s.Start(ctx)
-	res, _ := s.CreateNewJob("sleep", "Good Morning!\n")
-	for i := 0; i < 100; i++ {
-		s.CreateNewJob("sleep", "Good Morning!\n")
-		if i == 60 {
-			s.CreateNewJob("hi", nil)
+	res, _ := s.CreateNewJob("sleep", "Good Morning!\n", nil)
+	var mu sync.Mutex
+	rc := cap.NewResource("lock", mu)
+	rcList := []*cap.Resource{}
+	rcList = append(rcList, rc)
+	for i := 0; i < 1000; i++ {
+		s.CreateNewJob("sleep", "Good Morning!\n", nil)
+		if i == 100 {
+			s.CreateNewJob("hi", nil, rcList)
+		}
+		if i == 102 {
+			s.CreateNewJob("sleep", "Good Morning!\n", rcList)
 		}
 	}
 	val := <-res

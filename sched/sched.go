@@ -12,16 +12,13 @@ func NewCaptin() *Captin {
 	return &c
 }
 
-func (s *Scheduler) worker(jobs chan Job, ctx context.Context) {
+func (s *Scheduler) worker(jobs chan *Job, ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			s.wg.Done()
 			return
 		case j := <-jobs:
-			if j.args == nil {
-				j.args = struct{}{}
-			}
 			j.ref.handler(j.earlyBreak, j.resChan, j.args)
 			if j.ref.hasRV && j.resChan != nil {
 				close(j.resChan)
@@ -29,6 +26,7 @@ func (s *Scheduler) worker(jobs chan Job, ctx context.Context) {
 			if j.ref.preemptable && j.earlyBreak != nil {
 				close(j.earlyBreak)
 			}
+			j.done = true
 		default:
 		}
 	}
@@ -42,7 +40,7 @@ func (c *Captin) NewScheduler(schedName string, workerNum int) (*Scheduler, erro
 		jobDefs:   make(map[string]*JobDef),
 		prioMap:   make(map[int]int),
 		recvChan:  make(chan Job, 100),
-		jobQueue:  make(chan Job, 100),
+		jobQueue:  make(chan *Job, 100),
 	}
 	if oldS, ok := c.schedulers[schedName]; ok {
 		return oldS, errors.New("SchedName exists under this captin")
@@ -79,8 +77,35 @@ func (s *Scheduler) Start(ctx context.Context) {
 		case j := <-s.recvChan:
 			s.prioMap[j.ceilPriority]++
 			s.jobMap = append(s.jobMap, &j)
-			// TODO: ceiling the prioriy of specific job,
-			// if it has the sync resource shared with this job
+			if j.resources != nil {
+				for i := 0; i < len(j.resources); i++ {
+					resource := j.resources[i]
+					if resource.belong == nil {
+						resource.belong = &j
+						continue
+					}
+					curJ := resource.belong
+					if curJ != nil || !curJ.done {
+						if curJ.ceilPriority > j.ref.priority {
+							resource.belong = &j
+							// incomming job is more important than the job
+							// that uses the sync resource
+							if curJ.ref.preemptable {
+								// if curJ is preemptable,
+								// terminate this job by sending the signal
+								curJ.earlyBreak <- 1
+								continue
+							}
+							if curJ != nil && curJ != &j {
+								// otherwise, raise the priority of curJ
+								s.prioMap[curJ.ceilPriority]--
+								curJ.ceilPriority = j.ref.priority
+								s.prioMap[curJ.ceilPriority]++
+							}
+						}
+					}
+				}
+			}
 		default:
 			// TODO: watchDog
 			s.sched()
@@ -98,7 +123,7 @@ func (s *Scheduler) sched() {
 	for i := 0; i < len(s.jobMap); i++ {
 		if s.jobMap[i].ceilPriority == hPrio {
 			j := s.jobMap[i]
-			s.jobQueue <- *j
+			s.jobQueue <- j
 			s.jobMap = remove(s.jobMap, i)
 			s.prioMap[j.ceilPriority]--
 		}

@@ -9,14 +9,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func sleep(notify chan struct{}, args interface{}) interface{} {
+func sleep(notify chan interface{}, res chan interface{}, args interface{}) {
 	for {
 		select {
 		case <-notify:
-			return nil
+			return
 		default:
-			fmt.Println("Good morning!")
-			return struct{}{}
+			time.Sleep(5 * time.Millisecond)
+			fmt.Printf("%s", args)
+			res <- 1
+			return
 		}
 	}
 }
@@ -29,7 +31,7 @@ func TestFunctionality(t *testing.T) {
 	s.DefineNewJob("sleep", false, 0, true, sleep)
 	ctx, cancel := context.WithCancel(context.Background())
 	go s.Start(ctx)
-	s.CreateNewJob("sleep", nil)
+	s.CreateNewJob("sleep", nil, nil)
 	time.Sleep(3 * time.Second)
 	cancel()
 }

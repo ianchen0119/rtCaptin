@@ -25,8 +25,9 @@ type Job struct {
 	args         interface{}
 	earlyBreak   chan interface{}
 	resChan      chan interface{}
-	ceilPriority int  // default is equal than `priority`
-	assoJob      *Job // sub-job in this job, it maybe under the different worker-pool
+	resources    []*Resource
+	done         bool
+	ceilPriority int // default is equal than `priority`
 }
 
 type Scheduler struct {
@@ -38,13 +39,12 @@ type Scheduler struct {
 	// runtime
 	prioMap  map[int]int
 	recvChan chan Job
-	jobQueue chan Job
+	jobQueue chan *Job
 	wg       sync.WaitGroup
-	mu       sync.RWMutex
 }
 
-type Mutex struct {
-	mu           sync.Mutex
+type Resource struct {
 	resourceName string
+	res          interface{}
 	belong       *Job
 }
