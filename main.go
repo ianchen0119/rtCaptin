@@ -8,26 +8,30 @@ import (
 	cap "github.com/ianchen0119/rtCaptin/sched"
 )
 
-func sleep(notify chan struct{}, args interface{}) interface{} {
+func sleep(notify chan interface{}, res chan interface{}, args interface{}) {
 	for {
 		select {
 		case <-notify:
-			return nil
+			return
 		default:
+			time.Sleep(5 * time.Millisecond)
 			fmt.Println("Good morning!")
-			return struct{}{}
+			res <- 1
+			return
 		}
 	}
 }
 
-func sayHi(notify chan struct{}, args interface{}) interface{} {
+func sayHi(notify chan interface{}, res chan interface{}, args interface{}) {
 	for {
 		select {
 		case <-notify:
-			return nil
+			return
 		default:
+			time.Sleep(3 * time.Millisecond)
 			fmt.Println("Hi!")
-			return struct{}{}
+			res <- 1
+			return
 		}
 	}
 }
@@ -39,13 +43,13 @@ func main() {
 		return
 	}
 	// define jobs
-	s.DefineNewJob("sleep", false, 0, sleep)
-	s.DefineNewJob("hi", false, 255, sayHi)
+	s.DefineNewJob("sleep", false, 0, true, sleep)
+	s.DefineNewJob("hi", false, 255, false, sayHi)
 	ctx, cancel := context.WithCancel(context.Background())
 	go s.Start(ctx)
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		s.CreateNewJob("sleep", nil)
-		if i == 999 {
+		if i == 60 {
 			s.CreateNewJob("hi", nil)
 		}
 	}

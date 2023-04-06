@@ -6,3 +6,7 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+func remove(slice []interface{}, s int) []interface{} {
+	return append(slice[:s], slice[s+1:]...)
+}

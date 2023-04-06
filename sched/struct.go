@@ -10,21 +10,23 @@ type Captin struct {
 	schedulers map[string]*Scheduler
 }
 
-type JdHandler func(chan struct{}, interface{}) interface{}
+type JdHandler func(chan interface{}, chan interface{}, interface{})
 
 type JobDef struct {
-	jobName      string
-	preemptable  bool
-	ceilPriority int // default is equal than `priority`
-	priority     int
-	handler      JdHandler
+	jobName     string
+	preemptable bool
+	priority    int
+	hasRV       bool // return value of job's handler
+	handler     JdHandler
 }
 
 type Job struct {
-	ref        *JobDef
-	args       interface{}
-	earlyBreak chan struct{}
-	assoJob    *Job // sub-job in this job, it maybe under the different worker-pool
+	ref          *JobDef
+	args         interface{}
+	earlyBreak   chan interface{}
+	resChan      chan interface{}
+	ceilPriority int  // default is equal than `priority`
+	assoJob      *Job // sub-job in this job, it maybe under the different worker-pool
 }
 
 type Scheduler struct {
