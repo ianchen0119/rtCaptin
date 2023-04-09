@@ -7,7 +7,7 @@ type captinOps interface {
 }
 
 type schedulerOps interface {
-	DefineNewJob(string, bool, int, bool,
+	DefineNewTask(string, bool, int, bool,
 		func(JobContext, interface{})) error
 	CreateNewJob(string, interface{},
 		[]*Resource) (<-chan interface{}, error)

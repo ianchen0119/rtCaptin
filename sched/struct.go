@@ -43,15 +43,12 @@ type JobContextMap struct {
 type Scheduler struct {
 	schedName string
 	workerNum int
-	// pre-define
-	jobMap  []*Job
-	jobDefs map[string]*JobDef
-	// runtime
-	prioMap  map[int]int
-	recvChan chan Job
-	jobQueue chan *Job
-	ceilChan chan *Job
-	wg       sync.WaitGroup
+	jobMap    []*Job
+	jobDefs   map[string]*JobDef
+	recvChan  chan Job
+	jobQueue  chan *Job
+	ceilChan  chan *Job
+	wg        sync.WaitGroup
 }
 
 type Resource struct {

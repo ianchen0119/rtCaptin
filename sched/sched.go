@@ -39,9 +39,8 @@ func (c *Captin) NewScheduler(schedName string, workerNum int) (*Scheduler, erro
 		workerNum: workerNum,
 		jobMap:    []*Job{},
 		jobDefs:   make(map[string]*JobDef),
-		prioMap:   make(map[int]int),
-		recvChan:  make(chan Job, 100),
-		jobQueue:  make(chan *Job, 100),
+		recvChan:  make(chan Job, workerNum*10),
+		jobQueue:  make(chan *Job, workerNum*10),
 		ceilChan:  make(chan *Job, 1),
 	}
 	if oldS, ok := c.schedulers[schedName]; ok {
@@ -61,15 +60,13 @@ func (c *Captin) FindScheduler(schedName string) (*Scheduler, error) {
 }
 
 func (s *Scheduler) Start(ctx context.Context) {
-	for i := 0; i < priorityGap; i++ {
-		s.prioMap[i] = 0
-	}
-
 	s.wg.Add(s.workerNum)
 	for i := 0; i < s.workerNum; i++ {
 		go s.worker(s.jobQueue, ctx)
 	}
 	for {
+		// The event, sent from ohther scheduler, has highest priority.
+		// The Scheduler needs to proceed this request first.
 		select {
 		case j := <-s.ceilChan:
 			j.owner.ceilPriority(j)
@@ -82,7 +79,6 @@ func (s *Scheduler) Start(ctx context.Context) {
 			s.wg.Wait()
 			return
 		case j := <-s.recvChan:
-			s.prioMap[j.ceilPriority]++
 			s.jobMap = append(s.jobMap, &j)
 			if j.resources != nil {
 				for i := 0; i < len(j.resources); i++ {
@@ -92,7 +88,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 						continue
 					} else {
 						if resource.belong.owner != s {
-							resource.belong.owner.ceilPriorityToOhterSched(resource.belong)
+							resource.belong.owner.ceilPriorityToOhterScheder(resource.belong)
 							resource.belong = &j
 							continue
 						}
@@ -104,13 +100,13 @@ func (s *Scheduler) Start(ctx context.Context) {
 							// incomming job is more important than the job
 							// that uses the sync resource
 							if curJ.ref.preemptable {
-								// if curJ is preemptable,
+								// if current job is preemptable,
 								// terminate this job by sending the signal
 								curJ.earlyBreak <- 1
 								continue
 							}
 							if curJ != nil && curJ != &j {
-								// otherwise, raise the priority of curJ
+								// otherwise, raise the priority of current job
 								s.ceilPriority(curJ)
 							}
 						}
@@ -125,28 +121,30 @@ func (s *Scheduler) Start(ctx context.Context) {
 }
 
 func (s *Scheduler) ceilPriority(cJob *Job) {
-	s.prioMap[cJob.ceilPriority]--
 	cJob.ceilPriority = 0
-	s.prioMap[cJob.ceilPriority]++
 }
 
-func (s *Scheduler) ceilPriorityToOhterSched(j *Job) {
+func (s *Scheduler) ceilPriorityToOhterScheder(j *Job) {
 	j.owner.ceilChan <- j
 }
 
+// Earliest-Deadline-First (EDF) Algorithm
 func (s *Scheduler) sched() {
-	var hPrio int
-	for hPrio = 0; hPrio < priorityGap; hPrio++ {
-		if s.prioMap[hPrio] > 0 {
-			break
+	var selectedJobIndex int = 0
+	var prioMin = 256
+	for i := 0; i < len(s.jobMap); i++ {
+		if ok, selectedNum := min(s.jobMap[i].ceilPriority, prioMin); ok {
+			prioMin = selectedNum
+			selectedJobIndex = i
+		}
+		// aging
+		if s.jobMap[i].ceilPriority > 0 {
+			s.jobMap[i].ceilPriority--
 		}
 	}
-	for i := 0; i < len(s.jobMap); i++ {
-		if s.jobMap[i].ceilPriority == hPrio {
-			j := s.jobMap[i]
-			s.jobQueue <- j
-			s.jobMap = remove(s.jobMap, i)
-			s.prioMap[j.ceilPriority]--
-		}
+	if len(s.jobMap) > 0 {
+		j := s.jobMap[selectedJobIndex]
+		s.jobQueue <- j
+		s.jobMap = remove(s.jobMap, selectedJobIndex)
 	}
 }

@@ -1,10 +1,10 @@
 package sched
 
-func min(a, b int) int {
+func min(a, b int) (bool, int) {
 	if a < b {
-		return a
+		return true, a
 	}
-	return b
+	return false, b
 }
 
 func remove(slice []*Job, s int) []*Job {

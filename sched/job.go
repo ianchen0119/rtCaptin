@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-func (s *Scheduler) DefineNewJob(jobName string, preemptable bool,
+func (s *Scheduler) DefineNewTask(jobName string, preemptable bool,
 	priority int, hasReturnVal bool,
 	handler func(JobContext, interface{})) error {
 	if priority > priorityGap {

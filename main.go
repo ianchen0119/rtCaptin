@@ -45,9 +45,9 @@ func main() {
 	if err != nil {
 		return
 	}
-	// define jobs
-	s.DefineNewJob("sleep", false, 0, true, sleep)
-	s.DefineNewJob("hi", false, 255, false, sayHi)
+	// define tasks
+	s.DefineNewTask("sleep", false, 0, true, sleep)
+	s.DefineNewTask("hi", false, 20, false, sayHi)
 	ctx, cancel := context.WithCancel(context.Background())
 	go s.Start(ctx)
 	res, _ := s.CreateNewJob("sleep", "Good Morning!\n", nil)

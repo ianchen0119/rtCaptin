@@ -30,7 +30,7 @@ func TestFunctionality(t *testing.T) {
 	s, err := c.NewScheduler("http handler", 10)
 	assert.EqualValues(t, nil, err, "NewScheduler() should not return error")
 	// define jobs
-	s.DefineNewJob("sleep", false, 0, true, sleep)
+	s.DefineNewTask("sleep", false, 0, true, sleep)
 	ctx, cancel := context.WithCancel(context.Background())
 	go s.Start(ctx)
 	s.CreateNewJob("sleep", nil, nil)
