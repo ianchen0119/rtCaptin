@@ -19,7 +19,8 @@ func (s *Scheduler) worker(jobs chan *Job, ctx context.Context) {
 			s.wg.Done()
 			return
 		case j := <-jobs:
-			j.ref.handler(j.earlyBreak, j.resChan, j.args)
+			ctx := j.NewJobContext()
+			j.ref.handler(ctx, j.args)
 			if j.ref.hasRV && j.resChan != nil {
 				close(j.resChan)
 			}
@@ -41,6 +42,7 @@ func (c *Captin) NewScheduler(schedName string, workerNum int) (*Scheduler, erro
 		prioMap:   make(map[int]int),
 		recvChan:  make(chan Job, 100),
 		jobQueue:  make(chan *Job, 100),
+		ceilChan:  make(chan *Job, 1),
 	}
 	if oldS, ok := c.schedulers[schedName]; ok {
 		return oldS, errors.New("SchedName exists under this captin")
@@ -69,6 +71,11 @@ func (s *Scheduler) Start(ctx context.Context) {
 	}
 	for {
 		select {
+		case j := <-s.ceilChan:
+			j.owner.ceilPriority(j)
+		default:
+		}
+		select {
 		case <-ctx.Done():
 			close(s.jobQueue)
 			close(s.recvChan)
@@ -83,6 +90,10 @@ func (s *Scheduler) Start(ctx context.Context) {
 					if resource.belong == nil {
 						resource.belong = &j
 						continue
+					} else {
+						if resource.belong.owner != s {
+							resource.belong.owner.ceilPriorityToOhterSched(resource.belong)
+						}
 					}
 					curJ := resource.belong
 					if curJ != nil || !curJ.done {
@@ -98,9 +109,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 							}
 							if curJ != nil && curJ != &j {
 								// otherwise, raise the priority of curJ
-								s.prioMap[curJ.ceilPriority]--
-								curJ.ceilPriority = j.ref.priority
-								s.prioMap[curJ.ceilPriority]++
+								s.ceilPriority(curJ)
 							}
 						}
 					}
@@ -111,6 +120,16 @@ func (s *Scheduler) Start(ctx context.Context) {
 			s.sched()
 		}
 	}
+}
+
+func (s *Scheduler) ceilPriority(cJob *Job) {
+	s.prioMap[cJob.ceilPriority]--
+	cJob.ceilPriority = 0
+	s.prioMap[cJob.ceilPriority]++
+}
+
+func (s *Scheduler) ceilPriorityToOhterSched(j *Job) {
+	j.owner.ceilChan <- j
 }
 
 func (s *Scheduler) sched() {

@@ -9,7 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func sleep(notify chan interface{}, res chan interface{}, args interface{}) {
+func sleep(ctx JobContext, args interface{}) {
+	notify := ctx.GetEarlyBreakChan()
+	res := ctx.GetResultChan()
 	for {
 		select {
 		case <-notify:

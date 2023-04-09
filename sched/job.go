@@ -1,12 +1,13 @@
 package sched
 
 import (
+	"context"
 	"errors"
 )
 
 func (s *Scheduler) DefineNewJob(jobName string, preemptable bool,
 	priority int, hasReturnVal bool,
-	handler func(chan interface{}, chan interface{}, interface{})) error {
+	handler func(JobContext, interface{})) error {
 	if priority > priorityGap {
 		return errors.New("Job's priority should not greater than 255")
 	}
@@ -42,6 +43,7 @@ func (s *Scheduler) CreateNewJob(jobName string, args interface{}, resources []*
 			resChan:      c,
 			done:         false,
 			resources:    resources,
+			owner:        s,
 		}
 		if jd.preemptable {
 			j.earlyBreak = make(chan interface{}, 1)
@@ -49,6 +51,33 @@ func (s *Scheduler) CreateNewJob(jobName string, args interface{}, resources []*
 		s.recvChan <- j
 		return c, nil
 	}
+}
+
+func (j *Job) NewJobContext() JobContext {
+	ctxMap := JobContextMap{map[string]chan interface{}{
+		"earlyBreak": j.earlyBreak,
+		"result":     j.resChan,
+	}}
+	return JobContext{
+		ctx: context.WithValue(context.Background(),
+			"content", ctxMap),
+	}
+}
+
+func (c *JobContext) GetEarlyBreakChan() chan interface{} {
+	m := c.ctx.Value("content")
+	if res, ok := m.(JobContextMap).m["earlyBreak"]; ok {
+		return res
+	}
+	return nil
+}
+
+func (c *JobContext) GetResultChan() chan interface{} {
+	m := c.ctx.Value("content")
+	if res, ok := m.(JobContextMap).m["result"]; ok {
+		return res
+	}
+	return nil
 }
 
 func NewResource(resName string, val interface{}) *Resource {

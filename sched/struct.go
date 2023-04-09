@@ -1,6 +1,7 @@
 package sched
 
 import (
+	"context"
 	"sync"
 )
 
@@ -10,7 +11,7 @@ type Captin struct {
 	schedulers map[string]*Scheduler
 }
 
-type JdHandler func(chan interface{}, chan interface{}, interface{})
+type JdHandler func(JobContext, interface{})
 
 type JobDef struct {
 	jobName     string
@@ -28,6 +29,15 @@ type Job struct {
 	resources    []*Resource
 	done         bool
 	ceilPriority int // default is equal than `priority`
+	owner        *Scheduler
+}
+
+type JobContext struct {
+	ctx context.Context
+}
+
+type JobContextMap struct {
+	m map[string]chan interface{}
 }
 
 type Scheduler struct {
@@ -40,6 +50,7 @@ type Scheduler struct {
 	prioMap  map[int]int
 	recvChan chan Job
 	jobQueue chan *Job
+	ceilChan chan *Job
 	wg       sync.WaitGroup
 }
 

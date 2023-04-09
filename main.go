@@ -9,7 +9,9 @@ import (
 	cap "github.com/ianchen0119/rtCaptin/sched"
 )
 
-func sleep(notify chan interface{}, res chan interface{}, args interface{}) {
+func sleep(ctx cap.JobContext, args interface{}) {
+	notify := ctx.GetEarlyBreakChan()
+	res := ctx.GetResultChan()
 	for {
 		select {
 		case <-notify:
@@ -23,7 +25,8 @@ func sleep(notify chan interface{}, res chan interface{}, args interface{}) {
 	}
 }
 
-func sayHi(notify chan interface{}, res chan interface{}, args interface{}) {
+func sayHi(ctx cap.JobContext, args interface{}) {
+	notify := ctx.GetEarlyBreakChan()
 	for {
 		select {
 		case <-notify:
