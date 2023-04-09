@@ -93,6 +93,8 @@ func (s *Scheduler) Start(ctx context.Context) {
 					} else {
 						if resource.belong.owner != s {
 							resource.belong.owner.ceilPriorityToOhterSched(resource.belong)
+							resource.belong = &j
+							continue
 						}
 					}
 					curJ := resource.belong
